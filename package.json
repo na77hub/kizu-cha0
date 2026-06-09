@@ -1,0 +1,29 @@
+{
+  "name": "kizu-cha0",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/na77hub/kizu-cha0#readme",
+  "bugs": {
+    "url": "https://github.com/na77hub/kizu-cha0/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/na77hub/kizu-cha0.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^5.2.1",
+    "os": "^0.1.2",
+    "qrcode": "^1.5.4",
+    "serve-favicon": "^2.5.1",
+    "socket.io": "^4.8.3"
+  }
+}
