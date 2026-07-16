@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "compression": "^1.8.1",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jquery": "^4.0.0",
     "os": "^0.1.2",

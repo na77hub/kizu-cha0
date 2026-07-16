@@ -3,6 +3,7 @@ import path from 'path';
 
 export default defineConfig({
     root: 'src', // 開発ディレクトリ
+    envDir: path.resolve(__dirname), // .env のあるディレクトリ
     base: './',
     build: {
         outDir: '../public', // ビルド成果物の出力先
