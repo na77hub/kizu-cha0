@@ -20,6 +20,11 @@ import qrcode from "qrcode";
 //import { nodewhisper } from "nodejs-whisper";
 
 import * as myConf from "./conf.js";
+import "dotenv/config"; // .envの読み込み 
+
+// dotenvからキーが読み込まれたかテスト
+console.log( `VAPID_PUBLIC_KEY=${process.env.VAPID_PUBLIC_KEY}` );
+console.log( `VAPID_PRIVATE_KEY=${process.env.VAPID_PRIVATE_KEY}` );
 
 ////////////////////
 // ssl
