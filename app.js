@@ -12,6 +12,7 @@ import https from "https";
 import { Server as SocketIO } from "socket.io";
 import os from "os";
 import qrcode from "qrcode";
+import nedb from "@seald-io/nedb";
 
 //import ffmpeg from "fluent-ffmpeg";
 //import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
@@ -25,6 +26,9 @@ import "dotenv/config"; // .envの読み込み
 // dotenvからキーが読み込まれたかテスト
 console.log( `VAPID_PUBLIC_KEY=${process.env.VAPID_PUBLIC_KEY}` );
 console.log( `VAPID_PRIVATE_KEY=${process.env.VAPID_PRIVATE_KEY}` );
+
+// nedb
+const g_subscriptionDB = new nedb({ filename: "subscriptionDB", autoload: true });
 
 ////////////////////
 // ssl
@@ -306,6 +310,18 @@ g_io.on("connection", (socket) => {
         // 例: ffmpeg -i input.webm -c copy output.mp4
     });
   */  
+
+    socket.on("subscription for web-push", (data) => {
+        console.log("subscription for web-push:", data);
+        g_subscriptionDB.insert(data, (err, newDoc) => {
+            if (err) {
+                console.error("Subscription DB insert error:", err);
+            } else {
+                console.log("Subscription DB insert success:", newDoc);
+            }
+        })
+
+    });
 
     socket.on("disconnect", () => {
         //console.log("disconnected");
