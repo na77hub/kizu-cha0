@@ -10,8 +10,9 @@ const __dirname = path.dirname(__filename);
 export const kcRootDir = __dirname +  "/";
 
 // server settings
-export const protcol = "https"; // "http" or "https"
-export const port = 50090;
+//export const protcol = "https"; // "http" or "https"
+export const protcol = "http"; // "http" for localhost
+export const port = 50091;
 export const webRootPath = "/";
 export const kcRootPath = "/kc/";
 
@@ -28,7 +29,7 @@ export const roomDataDir = kcRootDir + "room_data/";
 //export const roomAudioDir = kcRootDir + "room_data/audio/";
 
 // files
-export const faviconFile = imageDir + "favicon-1024x1024.png";
+export const faviconFile = imageDir + "favicon-192x192.png";
 export const sslKeyFile = sslDir + "server.key";
 export const sslCrtFile = sslDir + "server.crt";
 

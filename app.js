@@ -13,6 +13,16 @@ import { Server as SocketIO } from "socket.io";
 import os from "os";
 import qrcode from "qrcode";
 import nedb from "@seald-io/nedb";
+import { default as webpush } from 'web-push';
+import dotenv from "dotenv";
+
+import path from "path";
+import { fileURLToPath } from "url";
+
+// generate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 //import ffmpeg from "fluent-ffmpeg";
 //import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
@@ -21,14 +31,27 @@ import nedb from "@seald-io/nedb";
 //import { nodewhisper } from "nodejs-whisper";
 
 import * as myConf from "./conf.js";
-import "dotenv/config"; // .envの読み込み 
 
+dotenv.config({
+    path: path.resolve(__dirname, ".env"),
+    quiet: true
+});
 // dotenvからキーが読み込まれたかテスト
-console.log( `VAPID_PUBLIC_KEY=${process.env.VAPID_PUBLIC_KEY}` );
-console.log( `VAPID_PRIVATE_KEY=${process.env.VAPID_PRIVATE_KEY}` );
+// console.log( `VAPID_PUBLIC_KEY=${process.env.VAPID_PUBLIC_KEY}` );
+// console.log( `VAPID_PRIVATE_KEY=${process.env.VAPID_PRIVATE_KEY}` );
 
 // nedb
 const g_subscriptionDB = new nedb({ filename: "subscriptionDB", autoload: true });
+
+// web-push
+webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+);
+
+// proxy
+const g_proxyServer = process.env.http_proxy;
 
 ////////////////////
 // ssl
@@ -136,6 +159,12 @@ g_app.get(myConf.kcRootPath+":room/audio/*splat", (req, res) => {
     }
   });
 */
+g_app.get(myConf.kcRootPath+":room/manifest.webmanifest", (req, res) => {
+    const room = req.params.room;
+    const manifest = createWebManifest(room);
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.json(manifest);    
+});
 g_app.get(myConf.kcRootPath+":room/*splat", (req, res) => {
     const path = myConf.publicDir + req.params.splat.join("/");
     if (fs.existsSync(path)) {
@@ -144,6 +173,25 @@ g_app.get(myConf.kcRootPath+":room/*splat", (req, res) => {
         res.status(404).send("404 Not Found");
     }
 });
+function createWebManifest(room) {
+    return {
+        "name": `kizu-cha(${room})`,
+        "short_name": `kc(${room})`,
+        "start_url": "./index.html",
+        "scope": "./",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#000000",
+        "icons": [
+            {
+                "src": "/image/favicon-192x192.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            }
+        ]
+    };    
+}
+
 // start web server
 const g_webSrv = (myConf.protcol === "https") ?
       https.createServer({key:g_sslKey, cert:g_sslCrt}, g_app) :
@@ -206,123 +254,97 @@ g_io.on("connection", (socket) => {
     socket.join(socket.room);
 
     // event
-    socket.on("video-upload", (data) => {
-        const timestamp = Date.now();
-        const filename = "video-" + timestamp + ".webm";
-        const filenameMp4 = "video-" + timestamp + ".mp4";
-        //const dirpath = myConf.roomVideoDir + socket.room + "/";
-        const dirpath = myConf.roomDataDir + socket.room + "/video/";
-        const filepath = dirpath + filename;
-        const filepathMp4 = dirpath + filenameMp4;
+    socket.on("subscription for web push", (data) => {
+        const query = { 
+            "subscription.endpoint": data.subscription.endpoint, 
+            "room": data.room 
+        };
         
-        if (!fs.existsSync(dirpath)) {
-            fs.mkdirSync(dirpath, { recursive: true });
-        }
-        
-        fs.writeFile(filepath, Buffer.from(data), (err) => {
+        g_subscriptionDB.count(query, (err, count) => {
             if (err) {
-                //console.error("Video 保存失敗:", err);
-                socket.emit("video-upload-result", {
-                    success: false
-                });
+                console.error("Subscription DB count error:", err);
+                return;
+            }
+            
+            if (count > 0) {
+                console.log("Subscription already exists for this room and endpoint. Skip insert.");
             } else {
-                //console.log("Video 保存完了:", filepath);
-                convertWebmToMp4(filepath, filepathMp4).then(() => {
-                    // ここで認識させる
-                    const sampleTexts = [
-                        "スマホを顔認証で開こうとしたら、真顔だと認識されませんでした。",
-                        "「明日から本気出す」が、私の得意なスポーツです。",
-                        "ダイエットは明日からと言い続けたら、もう半年が過ぎました。",
-                        "靴下を脱いだら、床に私の足跡が残っていました。",
-                        "寝坊して会社に遅刻しそうになったら、なぜか道で猫に懐かれました。",
-                        "冷蔵庫を開けたら、目的を忘れるのはもはや才能だと思います。",
-                        "お気に入りの服を着て外出したら、知らない人とおそろいでした。",
-                        "家の中で鍵を探していたら、ポケットから見つかりました。",
-                        "全力で走ったのに、電車に乗り遅れるという奇跡を起こしました。",
-                        "今日は早く寝ようと決めたのに、YouTubeが私の睡眠を妨害します。"
-                    ];
-                    const recogResult = {
-                        text: sampleTexts[Math.floor(Math.random()*sampleTexts.length)]
-                    };
-                    
-                    //socket.emit("video-upload-result", {
-                    g_io.sockets.in(socket.room).emit("video-upload-result", {
-                        success: true,
-                        filename: filename,
-                        recogResult: recogResult,
-                        timestamp: timestamp
-                    });
-                    
+                g_subscriptionDB.insert(data, (err, newDoc) => {
+                    if (err) {
+                        console.error("Subscription DB insert error:", err);
+                    } else {
+                        console.log("Subscription DB insert success:", newDoc);
+                    }
                 });
             }
         });
     });
-    socket.on("audio-upload", (data) => {
-        const timestamp = Date.now();
-        const filename = "audio-" + timestamp + ".wav";
-        const dirpath = myConf.roomDataDir + socket.room + "/audio/";
-        const filepath = dirpath + filename;
+    
+    
+    socket.on("unsubscription from web push", (data) => {
+        const query = { 
+            "subscription.endpoint": data.subscription.endpoint, 
+            "room": data.room 
+        };
         
-        if (!fs.existsSync(dirpath)) {
-            fs.mkdirSync(dirpath, { recursive: true });
-        }
-        
-        fs.writeFile(filepath, Buffer.from(data), (err) => {
+        g_subscriptionDB.remove(query, {}, (err, numRemoved) => {
             if (err) {
-                console.error("Audio 保存失敗:", err);
-                socket.emit("audio-upload-result", {
-                    success: false
-                });
+                console.error("Subscription DB remove error:", err);
+                return;
+            }
+            
+            if (numRemoved > 0) {
+                console.log("Subscription DB remove success. Rows removed:", numRemoved);
             } else {
-                console.log("Audio 保存完了:", filepath);
-
-                transcribeWithWhisper(filepath).then((text) => {
-                    const recogResult = {
-                        text: text
-                    };
-                    g_io.sockets.in(socket.room).emit("audio-upload-result", {
-                        success: !(text === undefined),
-                        filename: filename,
-                        recogResult: recogResult,
-                        timestamp: timestamp
-                    });
-                });
+                console.log("No matching subscription found to remove.");
             }
         });
+    });
+    
+    socket.on("send web push to room", (data) => {
+        // 形式：data = { room: "tmp", message: "こんにちは！" } 
 
-    });
-    
-/*
-    //const outputFile = path.join("uploads", `video-${Date.now()}.webm`);
-    const outputFile = "video-"+Date.now()+".webm";
-    const writeStream = fs.createWriteStream(outputFile);
-    
-    socket.on("video-chunk", (chunk) => {
-        // chunk は ArrayBuffer（Uint8Arrayに変換して書き込み）
-        writeStream.write(Buffer.from(chunk));
-    });
-    
-    socket.on("end-recording", () => {
-        writeStream.end();
-        console.log("録画終了:", outputFile);
-        
-        // 必要に応じて ffmpeg で mp4 に変換
-        // 例: ffmpeg -i input.webm -c copy output.mp4
-    });
-  */  
+        const query = { "room": data.room };
 
-    socket.on("subscription for web-push", (data) => {
-        console.log("subscription for web-push:", data);
-        g_subscriptionDB.insert(data, (err, newDoc) => {
+        g_subscriptionDB.find(query, (err, docs) => {
             if (err) {
-                console.error("Subscription DB insert error:", err);
-            } else {
-                console.log("Subscription DB insert success:", newDoc);
+                console.error("Subscription DB find error:", err);
+                return;
             }
-        })
-
+            
+            if (docs.length === 0) {
+                console.log(`No subscriptions found for room: ${data.room}`);
+                return;
+            }
+            
+            console.log(`Sending WebPush to ${docs.length} devices in room: ${data.room}`);
+            
+            const payload = JSON.stringify({
+                title: "新着通知",
+                body: data.message
+            });
+            
+            let options = {};
+            if (g_proxyServer) {
+                options["proxy"] = g_proxyServer;
+            }
+            docs.forEach((doc) => {
+                webpush.sendNotification(doc.subscription, payload, options)
+                    .then(() => {
+                        console.log("WebPush sent successfully to:", doc._id);
+                    })
+                    .catch((pushErr) => {
+                        console.error("WebPush send error for:", doc._id, pushErr);
+                        if (pushErr.statusCode === 410) {
+                            g_subscriptionDB.remove({ _id: doc._id }, {}, () => {
+                                console.log("Removed expired subscription from DB:", doc._id);
+                            });
+                        }
+                    });
+            });
+        });
     });
-
+    
     socket.on("disconnect", () => {
         //console.log("disconnected");
     });    
