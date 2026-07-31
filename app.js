@@ -40,9 +40,6 @@ dotenv.config({
 // console.log( `VAPID_PUBLIC_KEY=${process.env.VAPID_PUBLIC_KEY}` );
 // console.log( `VAPID_PRIVATE_KEY=${process.env.VAPID_PRIVATE_KEY}` );
 
-// nedb
-const g_subscriptionDB = new nedb({ filename: "subscriptionDB", autoload: true });
-
 // web-push
 webpush.setVapidDetails(
     process.env.VAPID_SUBJECT,
@@ -62,6 +59,9 @@ const g_sslCrt = fs.readFileSync(myConf.sslCrtFile).toString();
 ////////////////////
 // directories
 ////////////////////
+if (!fs.existsSync(myConf.databaseDir)) {
+    fs.mkdirSync(myConf.databaseDir, { recursive: true });
+}
 if (!fs.existsSync(myConf.roomDataDir)) {
     fs.mkdirSync(myConf.roomDataDir, { recursive: true });
 }
@@ -76,6 +76,12 @@ if (!fs.existsSync(myConf.roomAudioDir)) {
     fs.mkdirSync(myConf.roomAudioDir, { recursive: true });
 }
 */
+
+////////////////////
+// nedb
+////////////////////
+//const g_subscriptionDB = new nedb({ filename: "subscriptionDB", autoload: true });
+const g_subscriptionDB = new nedb({ filename: myConf.databaseDir+"subscriptionDB.db", autoload: true });
 
 ////////////////////
 // IP address

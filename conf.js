@@ -22,11 +22,13 @@ export const publicDir = kcRootDir + "public/";
 //export const libDir = kcRootDir + "lib/";
 export const imageDir = kcRootDir + "image/";
 export const sslDir = kcRootDir + "ssl_cert/";
+export const databaseDir = kcRootDir + "database/";
 export const rootDir = kcRootDir + "root/";
 export const roomDataDir = kcRootDir + "room_data/";
 //export const roomLogDir = kcRootDir + "room_data/log/";
 //export const roomVideoDir = kcRootDir + "room_data/video/";
 //export const roomAudioDir = kcRootDir + "room_data/audio/";
+
 
 // files
 export const faviconFile = imageDir + "favicon-192x192.png";
