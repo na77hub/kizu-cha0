@@ -5,17 +5,22 @@
 # 必要なモジュールのインストール
 npm install
 
-# VAPIDの取得
-node -e "const webpush=require('web-push'); const keys=webpush.generateVAPIDKeys(); console.log(JSON.stringify(keys,null,2));"
+# VAPID鍵の生成
+npx web-push generate-vapid-keys
 
-出力結果を（以下のようなもの）、
-{
-  "publicKey": "BNxyz...（長い文字列）",
-  "privateKey": "abc123...（長い文字列）"
-}
+出力された Public Key / Private Key を使って、`.env.example` を `.env` にコピーして編集する。
 
-.env に入力する。
+    cp .env.example .env
 
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` : 生成した鍵
+- `VAPID_SUBJECT` : `mailto:` または `https://` の連絡先
+- `VITE_VAPID_PUBLIC_KEY` : クライアント用。`VAPID_PUBLIC_KEY` と同じ値を直接記入する
 
+# クライアントのビルド（src/ → public/）
+npm run build-client
 
+# サーバの起動
+npm start
 
+起動後、`http://localhost:50091/` を開き、ルームのリンク（`/kc/<room>/`）から参加する。
+スマートフォンなどの実機で Web Push を使うには HTTPS が必要（`conf.js` の `protcol` を `"https"` にする）。

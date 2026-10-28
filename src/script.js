@@ -15,7 +15,8 @@ $(async function() {
 
     // socket.io
     g_socket = io.connect(window.location.origin, {
-        "max reconnection attempts": 100
+        "max reconnection attempts": 100,
+        query: { room: g_room, uuid: getOrCreateUuid() }
     });
     g_socket.on("connected", () => {
         console.log("socket.io 接続済");
@@ -32,10 +33,9 @@ $(async function() {
         await updateWebPushStatusUI(); // 💡状態をUIに反映
     });
 
-    // 形式：data = { room: "tmp", message: "こんにちは！" }
+    // 形式：data = { message: "こんにちは！" }（room は接続時の query で決まる）
     $("#send-web-push").on("click", function() {
         g_socket.emit("send web push to room", {
-            room: g_room,
             message: "こんにちは、kizu-cha ZEROです！"
         });
     });
@@ -160,6 +160,21 @@ async function isWebPushSubscribed() {
 }
 
 // functions
+// 端末ごとの識別子（localStorage に保存）
+function getOrCreateUuid() {
+    const key = "kizu-cha-uuid";
+    try {
+        let uuid = localStorage.getItem(key);
+        if (!uuid) {
+            uuid = crypto.randomUUID();
+            localStorage.setItem(key, uuid);
+        }
+        return uuid;
+    } catch (e) {
+        return crypto.randomUUID();
+    }
+}
+
 function getRoomIdFromUrl() {
     const url = new URL(window.location);
     const pathNames = url.pathname.split("/");

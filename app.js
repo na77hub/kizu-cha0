@@ -232,6 +232,13 @@ g_webSrv.listen(myConf.port, () => {
 ////////////////////
 // socket.io server
 ////////////////////
+const MAX_MESSAGE_LENGTH = 200;
+function isValidSubscription(sub) {
+    return !!sub
+        && typeof sub.endpoint === "string"
+        && typeof sub.keys?.p256dh === "string"
+        && typeof sub.keys?.auth === "string";
+}
 const g_io = new SocketIO(g_webSrv);
 //
 g_io.use((socket, next) => {
@@ -244,13 +251,9 @@ g_io.use((socket, next) => {
 g_io.on("connection", (socket) => {
     const query = socket.handshake.query;
     
-    // uuid check
-    if (!"uuid" in query) {
-        socket.disconnect("query.uuid is not found");
-    }
-    // room check
-    if (!"room" in query) {
-        socket.disconnect("query.room is not found");
+    // query check
+    if (!query.uuid || !checkPathDirNameFormat(query.room)) {
+        socket.disconnect(true);
         return;
     }
 
@@ -261,21 +264,27 @@ g_io.on("connection", (socket) => {
 
     // event
     socket.on("subscription for web push", (data) => {
-        const query = { 
-            "subscription.endpoint": data.subscription.endpoint, 
-            "room": data.room 
+        const subscription = data?.subscription;
+        if (!isValidSubscription(subscription)) {
+            console.warn("Invalid subscription from:", socket.uuid);
+            return;
+        }
+        // room は接続時の値を使う（クライアント申告の data.room は信用しない）
+        const query = {
+            "subscription.endpoint": subscription.endpoint,
+            "room": socket.room
         };
-        
+
         g_subscriptionDB.count(query, (err, count) => {
             if (err) {
                 console.error("Subscription DB count error:", err);
                 return;
             }
-            
+
             if (count > 0) {
                 console.log("Subscription already exists for this room and endpoint. Skip insert.");
             } else {
-                g_subscriptionDB.insert(data, (err, newDoc) => {
+                g_subscriptionDB.insert({ subscription, room: socket.room }, (err, newDoc) => {
                     if (err) {
                         console.error("Subscription DB insert error:", err);
                     } else {
@@ -285,20 +294,25 @@ g_io.on("connection", (socket) => {
             }
         });
     });
-    
-    
+
+
     socket.on("unsubscription from web push", (data) => {
-        const query = { 
-            "subscription.endpoint": data.subscription.endpoint, 
-            "room": data.room 
+        const endpoint = data?.subscription?.endpoint;
+        if (typeof endpoint !== "string") {
+            console.warn("Invalid unsubscription from:", socket.uuid);
+            return;
+        }
+        const query = {
+            "subscription.endpoint": endpoint,
+            "room": socket.room
         };
-        
+
         g_subscriptionDB.remove(query, {}, (err, numRemoved) => {
             if (err) {
                 console.error("Subscription DB remove error:", err);
                 return;
             }
-            
+
             if (numRemoved > 0) {
                 console.log("Subscription DB remove success. Rows removed:", numRemoved);
             } else {
@@ -306,30 +320,35 @@ g_io.on("connection", (socket) => {
             }
         });
     });
-    
+
     socket.on("send web push to room", (data) => {
-        // 形式：data = { room: "tmp", message: "こんにちは！" } 
+        // 形式：data = { message: "こんにちは！" }（送信先は接続時の room）
+        const message = data?.message;
+        if (typeof message !== "string" || message.length === 0 || message.length > MAX_MESSAGE_LENGTH) {
+            console.warn("Invalid message from:", socket.uuid);
+            return;
+        }
 
-        const query = { "room": data.room };
-
-        g_subscriptionDB.find(query, (err, docs) => {
+        const room = socket.room;
+        g_subscriptionDB.find({ room }, (err, docs) => {
             if (err) {
                 console.error("Subscription DB find error:", err);
                 return;
             }
-            
+
             if (docs.length === 0) {
-                console.log(`No subscriptions found for room: ${data.room}`);
+                console.log(`No subscriptions found for room: ${room}`);
                 return;
             }
-            
-            console.log(`Sending WebPush to ${docs.length} devices in room: ${data.room}`);
-            
+
+            console.log(`Sending WebPush to ${docs.length} devices in room: ${room}`);
+
             const payload = JSON.stringify({
                 title: "新着通知",
-                body: data.message
+                body: message,
+                url: `${myConf.kcRootPath}${room}/`
             });
-            
+
             let options = {};
             if (g_proxyServer) {
                 options["proxy"] = g_proxyServer;
@@ -341,7 +360,7 @@ g_io.on("connection", (socket) => {
                     })
                     .catch((pushErr) => {
                         console.error("WebPush send error for:", doc._id, pushErr);
-                        if (pushErr.statusCode === 410) {
+                        if (pushErr.statusCode === 404 || pushErr.statusCode === 410) {
                             g_subscriptionDB.remove({ _id: doc._id }, {}, () => {
                                 console.log("Removed expired subscription from DB:", doc._id);
                             });
@@ -350,7 +369,7 @@ g_io.on("connection", (socket) => {
             });
         });
     });
-    
+
     socket.on("disconnect", () => {
         //console.log("disconnected");
     });    
