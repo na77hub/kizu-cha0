@@ -4,7 +4,7 @@ import {
   isValidClientId,
   isValidRoomId,
   isValidSubscription,
-  isValidText,
+  normalizeText,
 } from "../server/validators.js";
 
 test("isValidRoomId: 空文字や禁止文字を含む名前を拒否する", () => {
@@ -29,10 +29,12 @@ test("isValidSubscription: endpoint と keys が揃っているときのみ許�
   assert.equal(isValidSubscription(null), false);
 });
 
-test("isValidText: 長さの範囲を検証する", () => {
-  assert.equal(isValidText("a", 3), true);
-  assert.equal(isValidText("abc", 3), true);
-  assert.equal(isValidText("abcd", 3), false);
-  assert.equal(isValidText("", 3), false);
-  assert.equal(isValidText(1, 3), false);
+test("normalizeText: 前後の空白を除き、コードポイント数で長さを検証する", () => {
+  assert.equal(normalizeText("  abc ", 3), "abc");
+  assert.equal(normalizeText("abcd", 3), null);
+  assert.equal(normalizeText("   ", 3), null);
+  assert.equal(normalizeText("", 3), null);
+  assert.equal(normalizeText(1, 3), null);
+  assert.equal(normalizeText("😀😀😀", 3), "😀😀😀");
+  assert.equal(normalizeText("😀😀😀😀", 3), null);
 });

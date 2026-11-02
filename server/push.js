@@ -1,5 +1,6 @@
 // server/push.js
 import webpush from "web-push";
+import { toNotificationPayload } from "./message-format.js";
 import { resolveRecipients } from "./recipients.js";
 
 const EXPIRED_STATUS_CODES = [404, 410];
@@ -9,11 +10,11 @@ export function createPushService({ vapid, proxyUrl, subscriptionStore }) {
 
   const sendOptions = proxyUrl ? { proxy: proxyUrl } : {};
 
-  // roomId の購読者全員（excludeClientId を除く）に通知する。
-  async function sendToRoom(roomId, payload, { excludeClientId } = {}) {
-    const entries = await subscriptionStore.findByRoom(roomId);
-    const recipients = resolveRecipients(entries, { excludeClientId });
-    const body = JSON.stringify(payload);
+  // メッセージのルームの購読者のうち、宛先に決まった端末へ通知する。
+  async function notify(message, { visibleClientIds } = {}) {
+    const entries = await subscriptionStore.findByRoom(message.roomId);
+    const recipients = resolveRecipients(entries, message, { visibleClientIds });
+    const body = JSON.stringify(toNotificationPayload(message));
 
     const results = await Promise.allSettled(
       recipients.map(async (entry) => {
@@ -33,5 +34,5 @@ export function createPushService({ vapid, proxyUrl, subscriptionStore }) {
     return { sent: results.length - failed.length, failed: failed.length };
   }
 
-  return { sendToRoom };
+  return { notify };
 }

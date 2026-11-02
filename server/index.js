@@ -4,8 +4,11 @@ import http from "node:http";
 import https from "node:https";
 import qrcode from "qrcode";
 import { config } from "./config.js";
+import { createMessageStore } from "./messages.js";
 import { getLocalIpAddresses } from "./network.js";
+import { createPresence } from "./presence.js";
 import { createPushService } from "./push.js";
+import { createRateLimiter } from "./rate-limiter.js";
 import { createApp } from "./routes.js";
 import { attachSocketServer } from "./socket.js";
 import { createSubscriptionStore } from "./subscriptions.js";
@@ -13,6 +16,9 @@ import { createSubscriptionStore } from "./subscriptions.js";
 fs.mkdirSync(config.dirs.database, { recursive: true });
 
 const subscriptionStore = createSubscriptionStore(config.dirs.database);
+const messageStore = createMessageStore({ directory: config.dirs.database });
+const presence = createPresence();
+const rateLimiter = createRateLimiter({ limit: 5, windowMs: 10_000 });
 const pushService = createPushService({
   vapid: config.vapid,
   proxyUrl: config.proxyUrl,
@@ -31,7 +37,13 @@ const httpServer =
       )
     : http.createServer(app);
 
-attachSocketServer(httpServer, { subscriptionStore, pushService });
+attachSocketServer(httpServer, {
+  subscriptionStore,
+  messageStore,
+  pushService,
+  presence,
+  rateLimiter,
+});
 
 httpServer.listen(config.port, () => {
   console.log("kizu-cha server has started");

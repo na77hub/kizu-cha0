@@ -5,6 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>kizu-cha0</title>
     <link rel="manifest" href="manifest.webmanifest" />
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 0 1rem;
+      }
+      #chat-messages {
+        list-style: none;
+        padding: 0;
+        height: 50vh;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+      }
+      #chat-messages li {
+        padding: 0.25rem 0.5rem;
+      }
+      #chat-messages li.mine {
+        background: #eef6ff;
+      }
+      .chat-meta {
+        font-size: 0.8rem;
+        color: #666;
+      }
+      .chat-name {
+        font-weight: bold;
+      }
+      .chat-body {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      #chat-form {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      #chat-body {
+        flex: 1;
+      }
+      #chat-status {
+        min-height: 1.2rem;
+        font-size: 0.85rem;
+        color: #b00020;
+      }
+    </style>
     <script type="module" src="main.js"></script>
   </head>
   <body>
@@ -13,6 +58,21 @@
     <div id="push-status"></div>
     <button id="subscribe-button">購読</button>
     <button id="unsubscribe-button">購読解除</button>
-    <button id="send-button">送信</button>
+
+    <h2>チャット</h2>
+    <ul id="chat-messages"></ul>
+    <div id="chat-status"></div>
+    <form id="chat-form">
+      <input id="chat-name" type="text" maxlength="20" placeholder="表示名" size="10" required />
+      <input
+        id="chat-body"
+        type="text"
+        maxlength="500"
+        placeholder="メッセージ"
+        autocomplete="off"
+        required
+      />
+      <button id="chat-send" type="submit">送信</button>
+    </form>
   </body>
 </html>

@@ -24,6 +24,10 @@ export function isValidSubscription(subscription) {
   );
 }
 
-export function isValidText(text, maxLength) {
-  return typeof text === "string" && text.length > 0 && text.length <= maxLength;
+// 前後の空白を除いた文字列を返す。文字列でない・空・maxLength（コードポイント数）超過なら null。
+export function normalizeText(text, maxLength) {
+  if (typeof text !== "string") return null;
+  const trimmed = text.trim();
+  const length = [...trimmed].length;
+  return length > 0 && length <= maxLength ? trimmed : null;
 }

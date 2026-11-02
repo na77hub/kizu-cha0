@@ -4,7 +4,7 @@ import path from "node:path";
 import nedb from "@seald-io/nedb";
 
 // 購読ストア。1件 = 1端末の1ルーム分の購読。
-// { _id, roomId, clientId, subscription }
+// { _id, roomId, clientId, subscription, keywords }
 export function createSubscriptionStore(databaseDir) {
   const db = new nedb({ filename: path.join(databaseDir, "subscriptions.db"), autoload: true });
 
@@ -16,7 +16,11 @@ export function createSubscriptionStore(databaseDir) {
   return {
     async save({ roomId, clientId, subscription }) {
       const _id = createEntryId(roomId, subscription.endpoint);
-      await db.updateAsync({ _id }, { _id, roomId, clientId, subscription }, { upsert: true });
+      await db.updateAsync(
+        { _id },
+        { _id, roomId, clientId, subscription, keywords: [] },
+        { upsert: true },
+      );
     },
 
     async remove({ roomId, endpoint }) {

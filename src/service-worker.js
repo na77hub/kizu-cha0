@@ -15,6 +15,8 @@ self.addEventListener("push", (event) => {
     icon: "/image/favicon-128x128.png",
     badge: "/image/favicon-128x128.png",
     data: { url: data.url || "/" },
+    // 同じルームの通知は置き換えつつ、毎回音や振動で知らせる
+    ...(data.tag && { tag: data.tag, renotify: true }),
   };
 
   event.waitUntil(self.registration.showNotification(data.title || "kizu-cha0", options));

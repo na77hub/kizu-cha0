@@ -1,11 +1,14 @@
 // src/main.js
+import { startChat } from "./chat.js";
 import { getOrCreateClientId } from "./client-id.js";
+import { startPresence } from "./presence.js";
 import { disablePush, enablePush, isPushEnabled } from "./push.js";
 import { getRoomIdFromUrl } from "./room.js";
-import { connectSocket, emitWithAck } from "./socket.js";
+import { connectSocket } from "./socket.js";
 
 const roomId = getRoomIdFromUrl();
-const socket = connectSocket({ roomId, clientId: getOrCreateClientId() });
+const clientId = getOrCreateClientId();
+const socket = connectSocket({ roomId, clientId });
 
 async function renderPushStatus() {
   document.querySelector("#push-status").textContent = `Web Push:${await isPushEnabled()}`;
@@ -26,7 +29,6 @@ onClick("#unsubscribe-button", async () => {
   await disablePush(socket);
   await renderPushStatus();
 });
-// チャット機能（chat:post）で置き換える予定の暫定動作。
-onClick("#send-button", () => {
-  emitWithAck(socket, "push:send", { body: "こんにちは、kizu-cha ZEROです！" });
-});
+
+startChat(socket, { clientId });
+startPresence(socket);
