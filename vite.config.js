@@ -19,7 +19,7 @@ export default defineConfig({
         viteStaticCopy({
             targets: [
                 {
-                    src: path.resolve(__dirname, "src/sw_kizu-cha.js"),
+                    src: path.resolve(__dirname, "src/service-worker.js"),
                     dest: "."
                     //dest: path.resolve(__dirname, "root")
                 }

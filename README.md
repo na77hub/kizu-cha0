@@ -22,5 +22,13 @@ npm run build-client
 # サーバの起動
 npm start
 
+# 開発・品質確認
+npm run dev     # Vite の開発サーバ
+npm test        # テスト
+npm run lint    # ESLint
+npm run format  # Prettier
+
+`PROTOCOL`(`http`/`https`)と `PORT` は `.env` で上書きできる。
+
 起動後、`http://localhost:50091/` を開き、ルームのリンク（`/kc/<room>/`）から参加する。
-スマートフォンなどの実機で Web Push を使うには HTTPS が必要（`conf.js` の `protcol` を `"https"` にする）。
+スマートフォンなどの実機で Web Push を使うには HTTPS が必要（`.env` に `PROTOCOL=https` を追加する）。

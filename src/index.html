@@ -1,17 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>kizu-cha0</title>
-    <link rel="manifest" href="manifest.webmanifest">
-    <script type="module" src="script.js"></script>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script type="module" src="main.js"></script>
   </head>
   <body>
     <h1>kizu-cha ZERO</h1>
-    <div id="room"></div>
-    <div id="web-push-info"></div>
-    <button id="subscribe">購読</button>
-    <button id="unsubscribe">購読解除</button>
-    <button id="send-web-push">送信</button>
+    <div id="room-label"></div>
+    <div id="push-status"></div>
+    <button id="subscribe-button">購読</button>
+    <button id="unsubscribe-button">購読解除</button>
+    <button id="send-button">送信</button>
   </body>
 </html>
