@@ -1,4 +1,13 @@
 .env
 node_modules/
+database/
 public/
 room_data/
+root/2Dcode.png
+
+# Emacsのバックアップファイル
+*~
+\#*\#
+
+# macのキャッシュ？
+.DS_Store
