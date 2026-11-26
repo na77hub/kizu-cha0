@@ -13,7 +13,6 @@ export function registerChatHandlers({
   handle,
   messageStore,
   pushService,
-  presence,
   rateLimiter,
 }) {
   const { roomId, clientId } = socket.data;
@@ -39,7 +38,7 @@ export function registerChatHandlers({
 
     // 通知の失敗は投稿の成否に影響させない。
     pushService
-      .notify(message, { visibleClientIds: presence.visibleClientIds(roomId) })
+      .notify(message)
       .then(({ viaProxy, sent, failed }) =>
         console.log(`WebPush(${viaProxy ? "proxy" : "direct"}): sent=${sent} failed=${failed}`),
       )
@@ -47,13 +46,6 @@ export function registerChatHandlers({
 
     return { ok: true, id: message._id };
   });
-
-  handle("presence:update", ({ visible }) => {
-    presence.set({ socketId: socket.id, roomId, clientId, visible });
-    return { ok: true };
-  });
-
-  socket.on("disconnect", () => presence.remove(socket.id));
 
   return {
     senderId,

@@ -1,6 +1,7 @@
 // server/socket.js
 import { Server } from "socket.io";
 import { registerChatHandlers } from "./handlers/chat.js";
+import { registerPreferenceHandlers } from "./handlers/preferences.js";
 import { registerPushHandlers } from "./handlers/push.js";
 import { isValidClientId, isValidRoomId } from "./validators.js";
 
@@ -44,9 +45,11 @@ export function attachSocketServer(httpServer, services) {
     socket.join(socket.data.roomId);
 
     registerPushHandlers({ socket, handle, ...services });
+    const preferences = registerPreferenceHandlers({ socket, handle, ...services });
     const chat = registerChatHandlers({ io, socket, handle, ...services });
 
     socket.emit("session:ready", { senderId: chat.senderId });
+    preferences.sendCurrent().catch((error) => console.error("preferences:current failed:", error));
     chat.sendHistory().catch((error) => console.error("chat:history failed:", error));
   });
 

@@ -31,6 +31,11 @@ test("toNotificationPayload: 本文は先頭100文字、tag はルーム名", ()
   assert.equal(payload.messageId, "m1");
 });
 
+test("toNotificationPayload: 一致した語をタイトルの先頭に付ける", () => {
+  const payload = toNotificationPayload(message, { matchedKeywords: ["休講", "締切"] });
+  assert.equal(payload.title, "[休講・締切] tmp / 太郎");
+});
+
 test("toSenderId: 8桁の16進で、同じ入力から同じ値になる", () => {
   const id = toSenderId("123e4567-e89b-12d3-a456-426614174000");
   assert.match(id, /^[0-9a-f]{8}$/);

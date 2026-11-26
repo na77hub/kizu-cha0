@@ -13,10 +13,11 @@ export function toPublicMessage(message) {
   };
 }
 
-// Web Push のペイロード。
-export function toNotificationPayload(message) {
+// Web Push のペイロード。一致したキーワードがあれば、タイトルの先頭に付ける。
+export function toNotificationPayload(message, { matchedKeywords = [] } = {}) {
+  const prefix = matchedKeywords.length > 0 ? `[${matchedKeywords.join("・")}] ` : "";
   return {
-    title: `${message.roomId} / ${message.name}`,
+    title: `${prefix}${message.roomId} / ${message.name}`,
     body: [...message.body].slice(0, NOTIFICATION_BODY_LENGTH).join(""),
     url: `/kc/${message.roomId}/`,
     tag: message.roomId,

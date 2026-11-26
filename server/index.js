@@ -6,7 +6,7 @@ import qrcode from "qrcode";
 import { config } from "./config.js";
 import { createMessageStore } from "./messages.js";
 import { getLocalIpAddresses } from "./network.js";
-import { createPresence } from "./presence.js";
+import { createPreferenceStore } from "./preferences.js";
 import { describeProxy } from "./proxy.js";
 import { createPushService } from "./push.js";
 import { createRateLimiter } from "./rate-limiter.js";
@@ -18,12 +18,13 @@ fs.mkdirSync(config.dirs.database, { recursive: true });
 
 const subscriptionStore = createSubscriptionStore(config.dirs.database);
 const messageStore = createMessageStore({ directory: config.dirs.database });
-const presence = createPresence();
+const preferenceStore = createPreferenceStore({ directory: config.dirs.database });
 const rateLimiter = createRateLimiter({ limit: 5, windowMs: 10_000 });
 const pushService = createPushService({
   vapid: config.vapid,
   proxyUrl: config.proxyUrl,
   subscriptionStore,
+  preferenceStore,
 });
 
 const app = createApp(config);
@@ -42,7 +43,7 @@ attachSocketServer(httpServer, {
   subscriptionStore,
   messageStore,
   pushService,
-  presence,
+  preferenceStore,
   rateLimiter,
 });
 

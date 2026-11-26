@@ -7,7 +7,7 @@
 kizu-cha0 は、Web Push を使って「ルーム」に参加している端末へ通知を送る Web アプリ。
 
 - 参加者はルームの URL（`/kc/<roomId>/`）を開き、「購読」ボタンで Web Push を有効にする。
-- ルーム内でチャットができ、投稿すると同じルームの購読端末（投稿者自身と前面で見ている端末を除く）に通知が届く。
+- ルーム内でチャットができ、投稿すると同じルームの購読端末（投稿者自身の端末を除く）に通知が届く。通知は、すべての投稿か、登録したキーワードを含む投稿だけかを選べる（12章）。
 - ブラウザを閉じていても、Service Worker が通知を表示する。
 - ログイン機能はなく、ルーム名を知っていれば誰でも参加・送信できる。
 
@@ -43,19 +43,20 @@ kizu-cha0 は、Web Push を使って「ルーム」に参加している端末�
 | `server/messages.js` | チャットのメッセージストア（nedb、ルームごとに最新1000件） |
 | `server/message-format.js` | メッセージの公開形式・通知ペイロードの生成 |
 | `server/sender-id.js` | `clientId` から公開用 `senderId` を作る |
-| `server/presence.js` | 前面表示中の端末の管理 |
+| `server/preferences.js` | 通知設定の検証と保存（nedb） |
+| `server/keyword-matcher.js` | キーワードの正規化と一致判定 |
 | `server/rate-limiter.js` | 連投制限 |
-| `server/handlers/` | Socket.IO のイベントハンドラ（`push.js`、`chat.js`） |
+| `server/handlers/` | Socket.IO のイベントハンドラ（`push.js`、`chat.js`、`preferences.js`） |
 | `server/validators.js` | 入力検証（`isValidRoomId` など） |
 | `server/proxy.js` | プロキシの使用状況の表示 |
 | `server/network.js` | ローカル IP アドレスの取得 |
-| `src/` | クライアントのソース（`index.html`, `main.js`, `push.js`, `socket.js`, `room.js`, `client-id.js`, `chat.js`, `presence.js`, `service-worker.js`） |
+| `src/` | クライアントのソース（`index.html`, `main.js`, `push.js`, `socket.js`, `room.js`, `client-id.js`, `chat.js`, `preferences.js`, `service-worker.js`） |
 | `test/` | テスト |
 | `public/` | Vite のビルド出力（git 管理外）。`/kc/:roomId/` で配信 |
 | `root/` | サイトルート `/` で配信する静的ファイル（ルーム一覧ページ、起動時生成の QR コード `2Dcode.png`） |
 | `image/` | ファビコン・アイコン（`/image/` で配信） |
 | `ssl_cert/` | HTTPS 用の証明書・鍵 |
-| `database/` | nedb のデータ（`subscriptions.db`、自動作成、git 管理外） |
+| `database/` | nedb のデータ（`subscriptions.db`、`messages.db`、`preferences.db`。自動作成、git 管理外） |
 
 ## 4. 設定
 
@@ -106,7 +107,7 @@ kizu-cha0 は、Web Push を使って「ルーム」に参加している端末�
 1. 読み込み時に `roomId` を取得し、`clientId` を決める。`clientId` は `localStorage`（キー `kizu-cha-client-id`）に保存した端末ごとの UUID。Socket.IO に `query: {roomId, clientId}` つきで接続し、購読状態を表示する。
 2. **購読**（`push.js` の `enablePush`）: Service Worker（`./service-worker.js`）を登録して `ready` を待つ → 既存購読がなければ `VITE_VAPID_PUBLIC_KEY` で `pushManager.subscribe`（`userVisibleOnly: true`）→ `push:subscribe` をサーバへ送る。
 3. **購読解除**（`disablePush`）: ブラウザ側で `unsubscribe()` し、成功したら `push:unsubscribe` をサーバへ送る。Service Worker 自体の登録は残す。
-4. **チャット**: `chat:post` で投稿し、`chat:message` / `chat:history` で受信する。`presence:update` で前面表示かどうかを伝える（11章）。
+4. **チャット**: `chat:post` で投稿し、`chat:message` / `chat:history` で受信する。通知の受け方は `preferences:update` で保存する（12章）。
 5. ボタン操作のたびに購読状態表示を更新する。
 6. サーバへのイベントは確認応答（ack）つきで送り、`{ok: false}` のときは警告をログに出す。
 
@@ -156,7 +157,7 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 ```
 [端末A] 購読 ──push:subscribe──▶ [サーバ] ──upsert──▶ DB
 [端末B] 投稿 ──chat:post──▶ [サーバ] ──保存──▶ DB、──findByRoom(roomId)──▶ DB
-                               └─ resolveRecipients ─ web-push ─▶ プッシュサービス ─▶ [端末A,B…] Service Worker ─▶ 通知表示
+                               └─ resolveRecipients（通知設定で絞り込み） ─ web-push ─▶ プッシュサービス ─▶ [端末A,B…] Service Worker ─▶ 通知表示
 ```
 
 ## 10. 既知の問題・未実装
@@ -170,10 +171,12 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 
 ## 11. チャット機能の仕様（実装済み）
 
+> 前面表示の端末を通知から除く仕組みは、12章の実装で廃止した。
+
 ### 11.1 目的と範囲
 
 - 同じルームの利用者どうしでテキストチャットをする。
-- 投稿されると、そのルームで Web Push を購読している全員に通知する（投稿者自身の端末と、いま前面でルームを見ている端末を除く）。
+- 投稿されると、そのルームで Web Push を購読している全員に通知する（投稿者自身の端末を除く。キーワードでの絞り込みは12章）。
 - 今回のフェーズに含めない拡張: 通知先の指定、キーワードによる受信フィルタ。これらを後から追加できる構造にしておく。
 
 ### 11.2 方針
@@ -204,7 +207,6 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 | 項目 | 内容 |
 |---|---|
 | `clientId` | 実装済み。購読した端末の識別子。投稿者の端末を通知から除く判定に使う |
-| `keywords` | 追加（予約）。空配列は全件受信。今回は常に空 |
 
 保存期間: ルームごとに最新1000件。保存のたびに、新しい順で1000件を超えた分を削除する。nedb は追記型でファイルが肥大するため、`setAutocompactionInterval` で定期的に圧縮する。
 
@@ -215,7 +217,6 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 | C→S | `chat:post` | `{body, name}` | 検証 → 保存 → `roomId` のルーム全員へ `chat:message` を配信 → Web Push 配信 |
 | S→C | `chat:message` | `{id, senderId, name, body, createdAt}` | 画面に追加。`clientId` は含めず `senderId` を含める。投稿者自身にも届く |
 | S→C | `chat:history` | 上と同じ形のメッセージ配列（古い順、直近50件） | **接続のたびに**本人だけへ送る（`session:ready` の後）。クライアントは `_id` で重複を除いて合流させる |
-| C→S | `presence:update` | `{visible}` | ページが前面で見えているかを伝える。接続直後と、表示/非表示が切り替わるたびに送る |
 
 - 表示名は `chat:post` のたびに送る。接続に状態を持たせない（`profile:update` は設けない）。
 - 失敗は別イベントではなく確認応答で返す: `{ok: false, error}`。エラーは `invalid_body`、`invalid_name`、`rate_limited`。
@@ -224,19 +225,7 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 
 ### 11.5 通知の配信
 
-宛先は `resolveRecipients(subscriptions, message, context)` の1か所で決める。`context` には、前面表示中の `clientId` の集合（`presence`）を渡す。
-
-1. ルームが同じ購読を取り出す。
-2. 投稿者自身の端末（`message.clientId` が同じ購読）を除外する。
-3. いま前面でルームを見ている端末（`presence:update` で `visible: true` の `clientId`）を除外する。
-4. （将来）`message.to` があれば、その送信先に絞る。
-5. （将来）購読の `keywords` があれば、本文に含まれる場合だけ残す。
-
-前面表示の管理（`server/presence.js`）:
-
-- 接続ごとの `visible` を保持し、同じ `clientId` の接続のどれかが `visible` なら、その端末は前面表示中とみなす。
-- 切断したら、その接続の状態を破棄する。
-- 切り替えの一瞬に通知が重複することや、取りこぼすことは許容する。
+宛先は `resolveRecipients` の1か所で決める。絞り込みの順序と引数は12.7 を参照。投稿者自身の端末は除く。
 
 通知ペイロード（JSON、4KB 以下）:
 
@@ -255,7 +244,6 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 - 送信状態を表示する（送信中 / 失敗）。確認応答にタイムアウトを設け、切断中の投稿は失敗として扱う。
 - 既存の「購読」「購読解除」と購読状態の表示は残す。「送信」ボタン（固定文言）は廃止する。
 - 本文と表示名は `textContent` で描画し、HTML として解釈しない（XSS 対策）。
-- ページの表示/非表示（`visibilitychange`）と接続直後に、`presence:update` を送る。
 
 ### 11.7 制限と検証
 
@@ -276,16 +264,14 @@ nedb（`database/subscriptions.db`）の 1 ドキュメント = 1 端末 × 1 �
 server/
   socket.js            接続の検証、handle ヘルパー（既存）
   handlers/push.js     push:subscribe / push:unsubscribe（socket.js から移す）
-  handlers/chat.js     chat:post、chat:history の送信、presence:update
+  handlers/chat.js     chat:post、chat:history の送信
   messages.js          メッセージストア（保存、直近N件の取得、古いものの削除）
-  presence.js          前面表示中の clientId の管理
   rate-limiter.js      連投制限
   recipients.js        宛先決定（引数を変更）
 src/
   chat.js              投稿、受信、描画
-  presence.js          前面表示/非表示の通知
 test/
-  messages.test.js、rate-limiter.test.js、recipients.test.js、presence.test.js
+  messages.test.js、rate-limiter.test.js、recipients.test.js
 ```
 
 `push:send` と、画面の「送信」ボタンは削除する。
@@ -301,7 +287,7 @@ test/
 1. 同じルームの2端末で、一方の投稿がもう一方に即時表示される。
 2. 別のルームには届かない。
 3. 購読中の他端末に通知が届き、投稿者自身の端末には届かない。
-4. ページを前面で開いている端末には通知が届かず、背面や閉じている端末には届く。
+4. ページを前面で開いている端末にも、背面や閉じている端末にも通知が届く。
 5. ページを閉じていても通知が届き、クリックでルームが開く。
 6. 後から入室した人と、再接続した人に、直近50件が表示される（重複しない）。
 7. 他の利用者に `clientId` が見えない（`senderId` のみ）。
@@ -316,4 +302,120 @@ test/
 - Enter 送信は `<form>` の submit で実現している。変換確定の Enter では submit が発生しないため、`isComposing` の個別判定はしていない。
 - 画面に保持するメッセージは最大1000件。それを超えた古いものは表示から外す。
 - 通知の送信結果（成功/失敗の件数）はサーバのログに出す。投稿の成否には影響させない。
-- 購読の `keywords` は保存時に空配列で初期化する（再購読で上書きされる点に注意）。
+
+## 12. キーワード通知の仕様（実装済み）
+
+### 12.1 目的と基本の動き
+
+利用者は、通知の受け方を2つから選ぶ。
+
+| モード | 通知が届く投稿 |
+|---|---|
+| `all`（既定） | すべての投稿 |
+| `keywords` | 登録したキーワードのどれかを含む投稿だけ |
+
+- 絞り込むのは通知だけで、チャット画面にはすべての投稿を表示する。
+- 投稿者自身の端末には通知しない。
+- **ブラウザを前面で表示している端末にも通知する**（11章からの変更）。
+- 通知を止めるには「購読解除」を使う。
+
+### 12.2 11章からの変更
+
+- 前面表示の判定（`presence:update`、`server/presence.js`、`src/presence.js`）は廃止した。11章の記述も更新済み。
+- 購読の `keywords`（予約項目）は削除した。設定は購読と別に保存する（購読解除や再購読で消えないようにするため）。古い購読データに残る `keywords` は使わない。
+
+### 12.3 データモデル
+
+通知設定（`server/preferences.js`、`database/preferences.db`）。1件 = ルーム × 端末。
+
+| 項目 | 型 | 内容 |
+|---|---|---|
+| `_id` | string | `roomId` と `clientId` から作る固定 ID（upsert） |
+| `roomId` | string | ルーム名 |
+| `clientId` | string | 端末の識別子。サーバ内のみ |
+| `mode` | string | `all` または `keywords` |
+| `keywords` | string[] | 登録した語。`all` モードでも保持する |
+
+- 設定がない端末は `all` として扱う（データ移行は不要）。
+- ログインがないため、同じ人でもブラウザや端末ごとに別の設定になる。
+- キーワードは他の利用者に送らない。
+
+### 12.4 一致の判定（`server/keyword-matcher.js`）
+
+- 部分一致。複数のキーワードは、どれか1つを含めば一致（OR）。
+- 本文とキーワードを NFKC で正規化してから小文字にする（全角・半角、大文字・小文字を区別しない）。
+- ひらがなとカタカナ、漢字と仮名は区別する。
+- 対象は本文の全体（通知に載せる先頭100文字に限らない）。表示名は対象外。
+- 正規表現は使わない。
+
+### 12.5 入力の制限
+
+- `keywords` は文字列の配列で、1設定あたり10個まで。
+- 各キーワードは前後の空白を除いて1〜30文字（コードポイント数）。空白だけの語は除く。
+- 正規化後に同じになる語は、先に登録した1つにまとめる。
+- `keywords` モードでキーワードが0個の保存は拒否する。`all` モードは0個でもよい。
+
+### 12.6 Socket.IO イベント
+
+| 方向 | イベント | データ | 処理 |
+|---|---|---|---|
+| S→C | `preferences:current` | `{mode, keywords}` | 接続のたびに、保存済みの設定（なければ既定値）を本人へ送る |
+| C→S | `preferences:update` | `{mode, keywords}` | 検証して保存する。成功は `{ok: true, mode, keywords}`（整形後の内容） |
+
+エラーは `invalid_mode`、`invalid_keywords`（型、個数、長さ）、`keywords_required`。ルームと端末は接続時の `roomId` / `clientId` を使う。
+
+### 12.7 通知の配信
+
+`resolveRecipients(subscriptions, message, { preferences })` で、次の順に絞る。`preferences` は、そのルームの通知設定（`clientId` → `{mode, keywords}`）。戻り値は `{entry, matchedKeywords}` の配列。
+
+1. 同じルームの購読を取り出す。
+2. 投稿者自身の端末を除く。
+3. `keywords` モードの端末は、本文が一致する場合だけ残す。
+
+通知の内容は受信者ごとに作る。`keywords` モードで一致した場合は、タイトルの先頭に一致した語を付ける（例: `[休講・締切] <ルーム名> / <表示名>`。登録順）。`all` モードのタイトルは11章のまま。
+
+### 12.8 画面
+
+- 通知の受け方の選択（すべて / キーワードのみ）、キーワードの追加と削除、保存ボタン。
+- 表示するのはサーバに保存された内容。保存に失敗したら、その旨を表示する。
+- 未購読でも設定できる。その場合は「通知を受けるには購読が必要です」と表示する。
+- 「部分一致のため、`AI` は `mail` にも一致する」という注意書きを入れる。
+- キーワードは `textContent` で描画する。
+- 「現在の設定」にはサーバに保存された内容だけを表示し、未保存の変更があることは別に表示する。再接続しても、編集中の内容は上書きしない。
+- 入力欄に残った語は、「保存」を押すと一覧に追加してから保存する。
+
+### 12.9 今後の拡張（今回は実装しない）
+
+- **宛先指定**: 詳細は今後検討する。
+- **必ず通知する投稿**: 資格のある利用者（管理者やパワーユーザなど。区分は未定）が、受信者のキーワード設定にかかわらず通知できるようにする。
+  - `resolveRecipients` では、この指定がある投稿は手順3（キーワードの絞り込み）を適用しない。
+  - 購読していない端末には届けられない。
+  - 前提として、資格を確認する認証が必要になる。現状は認証がなく、`clientId` は自己申告でなりすませるため、クライアントの申告だけで資格を認めてはならない（11.8 の「認証なし」の方針を見直す）。
+  - 指定の有無はサーバが資格を確認してから決める。
+
+### 12.10 ファイル構成
+
+```
+server/
+  preferences.js          通知設定の保存
+  keyword-matcher.js      正規化と一致判定（純粋な関数）
+  handlers/preferences.js preferences:update と、接続時の送信
+  recipients.js           キーワードの条件を追加
+src/
+  preferences.js          設定画面
+test/
+  preferences.test.js、keyword-matcher.test.js、recipients.test.js、message-format.test.js
+```
+
+### 12.11 受け入れ条件
+
+1. 設定していない端末には、他の利用者のすべての投稿が通知される。
+2. `keywords` モードでは、一致する投稿だけが通知され、一致しない投稿は通知されない。
+3. 全角・半角と大文字・小文字の違いは一致し、ひらがなとカタカナの違いは一致しない。
+4. 本文の101文字目以降にある語でも一致し、タイトルに一致した語が表示される。
+5. ブラウザを前面で表示していても通知される。投稿者自身の端末には通知されない。
+6. `all` に切り替えてから `keywords` に戻しても、キーワードが残る。
+7. 購読解除して再購読しても、サーバを再起動しても、設定が残る。
+8. `keywords` モードで0個の保存や、上限を超える入力は拒否され、サーバは落ちない。
+9. 別のルームの設定は影響しない。他の利用者にキーワードは見えない。
+10. チャット画面には、設定にかかわらずすべての投稿が表示される。

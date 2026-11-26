@@ -1,7 +1,7 @@
 // src/main.js
 import { startChat } from "./chat.js";
 import { getOrCreateClientId } from "./client-id.js";
-import { startPresence } from "./presence.js";
+import { startPreferences } from "./preferences.js";
 import { disablePush, enablePush, isPushEnabled } from "./push.js";
 import { getRoomIdFromUrl } from "./room.js";
 import { connectSocket } from "./socket.js";
@@ -11,7 +11,9 @@ const clientId = getOrCreateClientId();
 const socket = connectSocket({ roomId, clientId });
 
 async function renderPushStatus() {
-  document.querySelector("#push-status").textContent = `Web Push:${await isPushEnabled()}`;
+  const enabled = await isPushEnabled();
+  document.querySelector("#push-status").textContent = `Web Push:${enabled}`;
+  document.querySelector("#preferences-push-hint").hidden = enabled;
 }
 
 function onClick(selector, handler) {
@@ -31,4 +33,4 @@ onClick("#unsubscribe-button", async () => {
 });
 
 startChat(socket, { clientId });
-startPresence(socket);
+startPreferences(socket);

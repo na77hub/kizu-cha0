@@ -12,6 +12,24 @@
         margin: 0 auto;
         padding: 0 1rem;
       }
+      #preferences-push-hint,
+      #preferences-status {
+        font-size: 0.85rem;
+        color: #b00020;
+      }
+      #preferences-status {
+        min-height: 1.2rem;
+      }
+      #preferences-fields label {
+        margin-right: 1rem;
+      }
+      #keyword-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        list-style: none;
+        padding: 0;
+      }
       #chat-messages {
         list-style: none;
         padding: 0;
@@ -58,6 +76,28 @@
     <div id="push-status"></div>
     <button id="subscribe-button">購読</button>
     <button id="unsubscribe-button">購読解除</button>
+
+    <h2>通知の受け方</h2>
+    <p id="preferences-push-hint" hidden>通知を受けるには購読が必要です。</p>
+    <div id="preferences-saved">読み込み中...</div>
+    <fieldset id="preferences-fields" disabled>
+      <label><input type="radio" name="notification-mode" value="all" checked /> すべて通知</label>
+      <label><input type="radio" name="notification-mode" value="keywords" /> キーワードのみ</label>
+      <ul id="keyword-list"></ul>
+      <form id="keyword-form">
+        <input
+          id="keyword-input"
+          type="text"
+          maxlength="30"
+          placeholder="キーワード"
+          autocomplete="off"
+        />
+        <button type="submit">追加</button>
+      </form>
+      <p class="chat-meta">部分一致のため、「AI」は「mail」にも一致します。</p>
+      <button id="preferences-save" type="button">保存</button>
+    </fieldset>
+    <div id="preferences-status" role="status"></div>
 
     <h2>チャット</h2>
     <ul id="chat-messages"></ul>

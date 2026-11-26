@@ -7,21 +7,37 @@ const subscriptions = [
   { _id: "2", clientId: "b" },
   { _id: "3", clientId: "c" },
 ];
+const idsOf = (recipients) => recipients.map(({ entry }) => entry.clientId);
 
-test("resolveRecipients: 投稿者自身の端末は宛先に含まれない", () => {
-  const result = resolveRecipients(subscriptions, { clientId: "a" });
-  assert.deepEqual(result, [subscriptions[1], subscriptions[2]]);
+test("resolveRecipients: 設定がなければ、投稿者以外の全員が宛先", () => {
+  const result = resolveRecipients(subscriptions, { clientId: "a", body: "x" });
+  assert.deepEqual(idsOf(result), ["b", "c"]);
+  assert.deepEqual(result[0].matchedKeywords, []);
 });
 
-test("resolveRecipients: 前面で見ている端末は宛先に含まれない", () => {
+test("resolveRecipients: keywords モードは一致した場合だけ宛先になる", () => {
+  const preferences = new Map([
+    ["b", { mode: "keywords", keywords: ["休講", "締切"] }],
+    ["c", { mode: "keywords", keywords: ["雨"] }],
+  ]);
   const result = resolveRecipients(
     subscriptions,
-    { clientId: "a" },
-    { visibleClientIds: new Set(["b"]) },
+    { clientId: "a", body: "締切の前に休講" },
+    { preferences },
   );
-  assert.deepEqual(result, [subscriptions[2]]);
+  assert.deepEqual(idsOf(result), ["b"]);
+  assert.deepEqual(result[0].matchedKeywords, ["休講", "締切"]);
 });
 
-test("resolveRecipients: 該当がなければ空", () => {
-  assert.deepEqual(resolveRecipients([], { clientId: "a" }), []);
+test("resolveRecipients: all モードは保存済みのキーワードがあっても全件", () => {
+  const preferences = new Map([["b", { mode: "all", keywords: ["雨"] }]]);
+  const result = resolveRecipients(subscriptions, { clientId: "a", body: "晴れ" }, { preferences });
+  assert.deepEqual(idsOf(result), ["b", "c"]);
+  assert.deepEqual(result[0].matchedKeywords, []);
+});
+
+test("resolveRecipients: 投稿者は自分のキーワードに一致しても宛先にならない", () => {
+  const preferences = new Map([["a", { mode: "keywords", keywords: ["x"] }]]);
+  const result = resolveRecipients(subscriptions, { clientId: "a", body: "x" }, { preferences });
+  assert.deepEqual(idsOf(result), ["b", "c"]);
 });
