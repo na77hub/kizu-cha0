@@ -47,6 +47,7 @@ kizu-cha0 は、Web Push を使って「ルーム」に参加している端末�
 | `server/rate-limiter.js` | 連投制限 |
 | `server/handlers/` | Socket.IO のイベントハンドラ（`push.js`、`chat.js`） |
 | `server/validators.js` | 入力検証（`isValidRoomId` など） |
+| `server/proxy.js` | プロキシの使用状況の表示 |
 | `server/network.js` | ローカル IP アドレスの取得 |
 | `src/` | クライアントのソース（`index.html`, `main.js`, `push.js`, `socket.js`, `room.js`, `client-id.js`, `chat.js`, `presence.js`, `service-worker.js`） |
 | `test/` | テスト |
@@ -75,7 +76,7 @@ kizu-cha0 は、Web Push を使って「ルーム」に参加している端末�
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | サーバ側 VAPID 鍵 |
 | `VITE_VAPID_PUBLIC_KEY` | クライアントに埋め込む公開鍵（ビルド時に反映） |
 | `PROTOCOL` / `PORT` | 任意。プロトコルとポートの上書き |
-| `http_proxy` | 設定されていれば Web Push 送信時にプロキシ経由 |
+| `http_proxy` | 設定されていれば Web Push 送信時にプロキシ経由（小文字のみ。`HTTP_PROXY` / `https_proxy` / `HTTPS_PROXY` は使わない）。起動時のログに使用の有無を表示し（認証情報は伏せる）、送信結果のログには `WebPush(proxy)` / `WebPush(direct)` を付ける |
 
 ## 5. HTTP ルーティング（`server/routes.js`）
 

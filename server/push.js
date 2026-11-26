@@ -31,7 +31,11 @@ export function createPushService({ vapid, proxyUrl, subscriptionStore }) {
 
     const failed = results.filter((result) => result.status === "rejected");
     failed.forEach((result) => console.error("WebPush send error:", result.reason));
-    return { sent: results.length - failed.length, failed: failed.length };
+    return {
+      viaProxy: Boolean(proxyUrl),
+      sent: results.length - failed.length,
+      failed: failed.length,
+    };
   }
 
   return { notify };

@@ -40,7 +40,9 @@ export function registerChatHandlers({
     // 通知の失敗は投稿の成否に影響させない。
     pushService
       .notify(message, { visibleClientIds: presence.visibleClientIds(roomId) })
-      .then((result) => console.log(`WebPush: sent=${result.sent} failed=${result.failed}`))
+      .then(({ viaProxy, sent, failed }) =>
+        console.log(`WebPush(${viaProxy ? "proxy" : "direct"}): sent=${sent} failed=${failed}`),
+      )
       .catch((error) => console.error("WebPush notify failed:", error));
 
     return { ok: true, id: message._id };

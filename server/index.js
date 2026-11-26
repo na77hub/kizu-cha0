@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { createMessageStore } from "./messages.js";
 import { getLocalIpAddresses } from "./network.js";
 import { createPresence } from "./presence.js";
+import { describeProxy } from "./proxy.js";
 import { createPushService } from "./push.js";
 import { createRateLimiter } from "./rate-limiter.js";
 import { createApp } from "./routes.js";
@@ -47,6 +48,7 @@ attachSocketServer(httpServer, {
 
 httpServer.listen(config.port, () => {
   console.log("kizu-cha server has started");
+  describeProxy(process.env).forEach((line) => console.log(line));
   const urls = getLocalIpAddresses().map(({ name, address }) => ({
     name,
     url: `${config.protocol}://${address}:${config.port}/`,

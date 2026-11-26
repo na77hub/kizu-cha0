@@ -30,5 +30,8 @@ npm run format  # Prettier
 
 `PROTOCOL`(`http`/`https`)と `PORT` は `.env` で上書きできる。
 
+プロキシ経由で外部に接続する環境では、小文字の `http_proxy` を設定する(`HTTP_PROXY` や `https_proxy` は使わない)。
+起動時のログの `WebPush proxy:` の行で、使用の有無を確認できる。
+
 起動後、`http://localhost:50091/` を開き、ルームのリンク（`/kc/<room>/`）から参加する。
 スマートフォンなどの実機で Web Push を使うには HTTPS が必要（`.env` に `PROTOCOL=https` を追加する）。
